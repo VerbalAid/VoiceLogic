@@ -1,1 +1,8 @@
+fastapi
+uvicorn
+vosk
+pydub
+spacy
+transformers
+torch    # if using a Hugging Face model that requires PyTorch
 

@@ -1,0 +1,177 @@
+import React, { useState, useRef } from 'react';
+import { Mic, Square, Loader, AudioWaveform as Waveform } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useTranscriptionContext } from '../context/TranscriptionContext';
+import { v4 as uuidv4 } from 'uuid';
+
+const Dashboard = () => {
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<number | null>(null);
+  const { addTranscription } = useTranscriptionContext();
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        processAudioTranscription(audioBlob);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      startTimer();
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      alert('Unable to access microphone. Please ensure you have granted permission.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      setIsRecording(false);
+      stopTimer();
+    }
+  };
+
+  const startTimer = () => {
+    setRecordingTime(0);
+    timerRef.current = window.setInterval(() => {
+      setRecordingTime(prev => prev + 1);
+    }, 1000);
+  };
+
+  const stopTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
+  const processAudioTranscription = (audioBlob: Blob) => {
+    const transcriptionId = uuidv4();
+    const fileName = `recording-${new Date().toISOString()}.wav`;
+    
+    addTranscription({
+      id: transcriptionId,
+      fileName,
+      status: 'processing',
+      date: new Date().toISOString().split('T')[0],
+    });
+
+    setTimeout(() => {
+      const transcribedText = "This is where the actual transcription would appear...";
+      console.log('Transcribed text:', transcribedText);
+    }, 2000);
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto py-8">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl shadow-lg p-8 border border-blue-100/50"
+      >
+        <div className="text-center">
+          <motion.div 
+            className="mb-8"
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 mb-3">
+              Voice Recording Studio
+            </h2>
+            <p className="text-gray-600">Create high-quality voice recordings with real-time transcription</p>
+          </motion.div>
+
+          {isRecording && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mb-6 flex items-center justify-center space-x-4"
+            >
+              <div className="flex items-center space-x-2">
+                <span className="animate-pulse h-3 w-3 bg-red-500 rounded-full"/>
+                <p className="text-xl font-semibold text-red-600">Recording: {formatTime(recordingTime)}</p>
+              </div>
+              <div className="flex space-x-1">
+                {[...Array(5)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className="w-1 h-8 bg-blue-500 rounded-full"
+                    animate={{
+                      height: [8, 32, 8],
+                    }}
+                    transition={{
+                      duration: 1,
+                      repeat: Infinity,
+                      delay: i * 0.1,
+                    }}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          <motion.div 
+            className="flex justify-center space-x-4"
+            whileHover={{ scale: 1.02 }}
+          >
+            {!isRecording ? (
+              <motion.button
+                onClick={startRecording}
+                className="flex items-center justify-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl"
+                whileTap={{ scale: 0.98 }}
+              >
+                <Mic size={24} />
+                <span className="text-lg font-semibold">Start Recording</span>
+              </motion.button>
+            ) : (
+              <motion.button
+                onClick={stopRecording}
+                className="flex items-center justify-center space-x-3 px-8 py-4 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl hover:from-red-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-xl"
+                whileTap={{ scale: 0.98 }}
+              >
+                <Square size={24} />
+                <span className="text-lg font-semibold">Stop Recording</span>
+              </motion.button>
+            )}
+          </motion.div>
+
+          {isRecording && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-6 flex items-center justify-center text-gray-600"
+            >
+              <Waveform className="animate-pulse mr-2" size={20} />
+              <span className="text-lg">Capturing your voice...</span>
+            </motion.div>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+export default Dashboard;

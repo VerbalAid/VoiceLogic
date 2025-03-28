@@ -1,0 +1,59 @@
+import React, { createContext, useContext, useState } from 'react';
+
+interface Transcription {
+  id: string;
+  fileName: string;
+  status: 'completed' | 'processing' | 'error';
+  date: string;
+}
+
+interface TranscriptionContextType {
+  recentTranscriptions: Transcription[];
+  addTranscription: (transcription: Transcription) => void;
+  updateTranscription: (id: string, updates: Partial<Transcription>) => void;
+}
+
+const TranscriptionContext = createContext<TranscriptionContextType | undefined>(undefined);
+
+export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [recentTranscriptions, setRecentTranscriptions] = useState<Transcription[]>([
+    {
+      id: '1',
+      fileName: 'meeting-recording.mp3',
+      status: 'completed',
+      date: '2024-03-10',
+    },
+    {
+      id: '2',
+      fileName: 'interview.wav',
+      status: 'processing',
+      date: '2024-03-10',
+    },
+  ]);
+
+  const addTranscription = (transcription: Transcription) => {
+    setRecentTranscriptions((prev) => [transcription, ...prev]);
+  };
+
+  const updateTranscription = (id: string, updates: Partial<Transcription>) => {
+    setRecentTranscriptions((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
+    );
+  };
+
+  return (
+    <TranscriptionContext.Provider
+      value={{ recentTranscriptions, addTranscription, updateTranscription }}
+    >
+      {children}
+    </TranscriptionContext.Provider>
+  );
+};
+
+export const useTranscriptionContext = () => {
+  const context = useContext(TranscriptionContext);
+  if (context === undefined) {
+    throw new Error('useTranscriptionContext must be used within a TranscriptionProvider');
+  }
+  return context;
+};
